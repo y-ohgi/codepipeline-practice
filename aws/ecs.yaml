@@ -80,6 +80,12 @@ Resources:
   #============================================================
   # ECS Task Definition
   #============================================================
+  CodeBuildLogGroup: 
+    Type: 'AWS::Logs::LogGroup'
+    Properties: 
+      LogGroupName: !Sub '/${StackName}/ecs/${RegistryName}'
+      RetentionInDays: 7
+
   EcsTaskExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -135,6 +141,7 @@ Resources:
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
+          AssignPublicIp: 'ENABLED'
           SecurityGroups:
             - !Ref SecurityGroupId
           Subnets: !Ref SubnetIds
