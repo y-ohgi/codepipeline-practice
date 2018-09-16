@@ -159,6 +159,7 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
+  # TODO: iam:pass
   CodePipelineRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -195,11 +196,29 @@ Resources:
                     "arn:aws:s3:::${CodePipelineBucket}/*"
                   ],
                   "Effect": "Allow"
+                },
+                {
+                  "Action": [
+                    "cloudformation:CreateStack",
+                    "cloudformation:DescribeStacks",
+                    "cloudformation:DeleteStack",
+                    "cloudformation:UpdateStack",
+                    "cloudformation:CreateChangeSet",
+                    "cloudformation:ExecuteChangeSet",
+                    "cloudformation:DeleteChangeSet",
+                    "cloudformation:DescribeChangeSet",
+                    "cloudformation:SetStackPolicy",
+                    "iam:PassRole"
+                  ],
+                  "Resource": [
+                    "*"
+                  ],
+                  "Effect": "Allow"
                 }
               ]
             }
 
-  # TODO
+  # TODO: iam policy
   CodePipelineCFnDeployRole:
     Type: AWS::IAM::Role
     Properties:
