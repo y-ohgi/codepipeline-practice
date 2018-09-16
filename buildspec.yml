@@ -30,4 +30,4 @@ phases:
 artifacts:
   files:
     - '/tmp/${CODECOMMIT_REGISTRY_NAME}/aws/ecs.yaml'
-    - '/tmp/${CODECOMMIT_REGISTRY_NAME}/build.json
+    - '/tmp/${CODECOMMIT_REGISTRY_NAME}/build.json'
