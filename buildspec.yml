@@ -27,8 +27,7 @@ phases:
       - 'docker push ${REPOSITORY_URI}:latest'
       - printf '{"tag":"%s"}' "${IMAGE_TAG}" > build.json
 
-
 artifacts:
   files:
-    - aws/ecs.yaml
-    - build.json
+    - '/tmp/${CODECOMMIT_REGISTRY_NAME}/aws/ecs.yaml'
+    - '/tmp/${CODECOMMIT_REGISTRY_NAME}/build.json
