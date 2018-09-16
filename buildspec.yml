@@ -20,5 +20,15 @@ phases:
   build:
     commands:
       - 'docker build -t ${REPOSITORY_URI}:${IMAGE_TAG} -t ${REPOSITORY_URI}:latest --build-arg VERSION=$(git rev-parse --short HEAD) .'
+
+  post_build:
+    commands:
       - 'docker push ${REPOSITORY_URI}:${IMAGE_TAG}'
       - 'docker push ${REPOSITORY_URI}:latest'
+      - printf '{"tag":"%s"}' "${IMAGE_TAG}" > build.json
+
+
+artifacts:
+  files:
+    - aws/ecs.yaml
+    - build.json
