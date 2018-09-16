@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      #XXX: CodePipelineからCodeCommitとCodeBuildを連携させるとgitのメタ情報が削除されるため、CodeBuildから直接CodeCommitをクローンする
+      # ref: https://forums.aws.amazon.com/thread.jspa?threadID=251732
+      - 'git config --global credential.helper "!aws codecommit credential-helper $@"'
+      - 'git config --global credential.UseHttpPath true'
+      - 'git clone https://git-codecommit.${AWS_DEFAULT_REGION}.amazonaws.com/v1/repos/${CODECOMMIT_REGISTRY_NAME} /tmp/${CODECOMMIT_REGISTRY_NAME}'
+      - 'cd /tmp/${CODECOMMIT_REGISTRY_NAME}'
+
+  pre_build:
+    commands:
+      - '$(aws ecr get-login --no-include-email --region ${AWS_DEFAULT_REGION})'
+      - 'AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)'
+      - 'REPOSITORY_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPOSITORY_NAME}'
+      - 'IMAGE_TAG=$(git rev-parse --short HEAD)'
+
+  build:
+    commands:
+      - 'docker build -t ${REPOSITORY_URI}/${IMAGE_TAG} -t ${REPOSITORY_URI}/latest --build-arg VERSION=$(git rev-parse --short HEAD) .'
+      - 'docker push ${REPOSITORY_URI}/${IMAGE_TAG}'
+      - 'docker push ${REPOSITORY_URI}/latest'
