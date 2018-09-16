@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  StackName:
+    Type: 'String'
+    Default: 'test'
+
+  # ECR Cluster
+  ClusterName:
+    Type: 'String'
+    Default: 'default'
+
+  # ECR Registry Name
+  RegistryName:
+    Type: 'String'
+    Default: 'app'
+
+  # ECR Image Tag
+  ImageTag:
+    Type: 'String'
+    Default: 'latest'
+
+  # VPC Id
+  #TODO delete
+  VpcId:
+    Type: 'AWS::EC2::VPC::Id'
+    Default: 'vpc-e83f708c'
+  SubnetIds:
+    Type: 'List<AWS::EC2::Subnet::Id>'
+    Default: 'subnet-5d9cc105,subnet-6d4b551b,subnet-fa743ed2'
+  SecurityGroupId:
+    Type: 'String'
+    Default: 'sg-b70202d1'
+
+Resources:
+  #============================================================
+  # Alb
+  #   MEMO: ECS Serviceへ設定するTargetGroupはAlbへ紐付いてる必要がある。
+  #============================================================
+  Alb:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: 'application'
+      Name: !Sub 'alb-${StackName}'
+      IpAddressType: 'ipv4'
+      Scheme: 'internet-facing'
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref SecurityGroupId
+
+  TargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      Name: !Sub 'tg-${StackName}-${RegistryName}'
+      VpcId: !Ref VpcId
+      # HealthCheck
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: '/'
+      HealthCheckPort: 80
+      HealthCheckProtocol: 'HTTP'
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200-399'
+      # Routing
+      Port: 80
+      Protocol: 'HTTP'
+      TargetType: 'ip'
+
+  HTTPListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - Type: 'forward'
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref Alb
+      Port: '80'
+      Protocol: 'HTTP'
+
+  #============================================================
+  # ECS Task Definition
+  #============================================================
+  EcsTaskExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: ['sts:AssumeRole']
+            Effect: 'Allow'
+            Principal:
+              Service: ['ecs-tasks.amazonaws.com']
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+
+  EcsTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties: 
+      Family: !Sub 'task-${StackName}-${RegistryName}'
+      Cpu: '256'
+      Memory: '0.5GB'
+      NetworkMode: 'awsvpc'
+      RequiresCompatibilities: ['FARGATE']
+      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+      # TaskRoleArn: !Ref EcsTaskIam
+      ContainerDefinitions:
+        - Name: !Ref RegistryName
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RegistryName}:${ImageTag}'
+          MemoryReservation: 512
+          Essential: true
+          PortMappings:
+          - HostPort: 80
+            Protocol: 'tcp'
+            ContainerPort: 80
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: !Sub '/${StackName}/ecs/${RegistryName}'
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: 'ecs'
+
+  #============================================================
+  # ECS Service
+  #   TODO: デプロイの戦略を変更することでデプロイ時間を短縮できるか確かめる
+  #============================================================
+  EcsService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      TaskDefinition: !Ref EcsTaskDefinition
+      DesiredCount: 1
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerPort: 80
+          ContainerName: !Ref RegistryName
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref SecurityGroupId
+          Subnets: !Ref SubnetIds
+      Cluster: !Ref ClusterName
+
+  #============================================================
+  # ApplicationAutoScaling
+  #============================================================
+
+
